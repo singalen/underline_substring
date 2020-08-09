@@ -1,8 +1,90 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#ifndef MIN
+#define MIN(_a,_b) ((_a)<(_b)?(_a):(_b))
+#endif
+
+
+static size_t
+print_till_eol(const char * psz_line)
+{
+  int count = 0;
+  while (psz_line[count] != 0 && psz_line[count] != '\n') {
+    putchar(psz_line[count]);
+    count++;
+  }
+  return count;
+}
+
 static void
-print_command_underlined(char * const psz_command, size_t offset, size_t length)
+print_underline(size_t offset, size_t length)
+{
+  printf ("%*s", (int) offset, "");
+  for (int i = 0; i < length; i++) {
+    putchar('^');
+  }
+  putchar('\n');
+}
+
+
+static void
+print_command_underlined(char * psz_command, size_t sub_offset, size_t sub_length)
+{
+  // TODO: Doesn't account for \t, \r.
+
+  long line_length = 0;
+
+  do {
+    line_length = print_till_eol(psz_command);
+    putchar('\n');
+    psz_command += line_length; // and a newline/null
+
+    if (*psz_command == '\n') {
+      psz_command++;
+    }
+
+    if (sub_offset < line_length) {
+      size_t underline_length = MIN(sub_length, line_length - sub_offset);
+      print_underline(sub_offset, underline_length);
+      break;
+    }
+
+    sub_offset -= line_length;
+
+    // Skip the newline
+    if (sub_offset == 0) {
+      // The offset can, in theory, start on newline.
+
+      sub_length--;
+      while (*psz_command == '\n') {
+        putchar('\n');
+        // If only \n-s need to be underlined, then underline the last of them.
+        if (sub_length == 1) {
+          puts ("^");
+          psz_command++;
+          break;
+        }
+        psz_command++;
+        sub_length--;
+      }
+
+    } else {
+      sub_offset--;
+    }
+
+  } while (*psz_command != '\0');
+
+  int tail_length = printf("%s", psz_command) - 1;
+  if (tail_length > 0 && psz_command[tail_length] != '\n') {
+    putchar('\n');
+  }
+
+}
+
+
+static void
+print_command_underlined0(char * const psz_command, size_t offset, size_t length)
 {
   char *psz_line = psz_command;
   bool line_matched = false;
@@ -90,17 +172,18 @@ int main() {
   setvbuf(stdout, NULL, _IONBF, 0);
 
   print_test("underlines \"hello\":", "echo hello", 5, 5);
-  print_test("underlines \"hello\":", "echo a\necho hello", 12, 5);
+  print_test("underlines \"hello\" too:", "echo a\necho hello", 12, 5);
   print_test("skips \\n, underlines second \"echo\":", "echo a\necho hello", 6, 5);
-  print_test("skips \\n, underlines second \"echo\":", "echo a\necho hello", 7, 4);
+  print_test("skips \\n, underlines second \"echo\" too:", "echo a\necho hello", 7, 4);
 
   print_test("offset out of range", "012345", 6, 4);
   print_test("offset+len out of range", "012345", 4, 4);
   print_test("empty line, at the beginning", "", 0, 2);
   print_test("empty line, out of range", "", 1, 2);
 
-  print_test("underline a few newlines and 3", "\n\n\n3", 2, 2);
-  print_test("underline a few newlines", "\n\n\n", 1, 2);
+  print_test("underline three newlines and a 3", "\n\n\n3", 2, 2);
+  print_test("underline three newlines (namely, the third)", "\n\n\n", 1, 2);
+  print_test("underline three newlines (namely, the third) and print fourth", "\n\n\n\n", 1, 2);
 
   print_test("underline 1", "0123456789", 1, 1);
   print_test("underline 23", "0123456789", 2, 2);
